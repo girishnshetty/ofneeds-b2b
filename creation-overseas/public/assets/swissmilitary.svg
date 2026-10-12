@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="100%" height="100%">
+  <!-- Rounded Black Border -->
+  <rect x="70" y="5" width="60" height="60" rx="12" fill="black" />
+  <!-- Inner White Border -->
+  <rect x="73" y="8" width="54" height="54" rx="9" fill="white" />
+  <!-- Red Center -->
+  <rect x="75" y="10" width="50" height="50" rx="7" fill="#ff0000" />
+  <!-- Swiss Cross -->
+  <path d="M 94 20 h 12 v 10 h 10 v 10 h -10 v 10 h -12 v -10 h -10 v -10 h 10 z" fill="white" />
+  
+  <!-- Text -->
+  <text x="100" y="90" font-family="sans-serif" font-weight="900" font-size="20" fill="#222" text-anchor="middle" letter-spacing="2">SWISS</text>
+  <text x="100" y="112" font-family="sans-serif" font-weight="900" font-size="20" fill="#222" text-anchor="middle" letter-spacing="1.5">MILITARY</text>
+</svg>

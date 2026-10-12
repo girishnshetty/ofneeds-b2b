@@ -1,0 +1,90 @@
+[
+  {
+    "slug": "swiss-military",
+    "name": "Swiss Military",
+    "url": "https://www.swissmilitaryindia.com/cdn/shop/files/logo-for-website.png?v=1713939238&width=680",
+    "page": "https://www.swissmilitaryindia.com/",
+    "file": "/assets/brands/swiss-military.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "monte-carlo",
+    "name": "Monte Carlo",
+    "url": "https://www.montecarlo.in/cdn/shop/files/MC_13cd4205-e97f-4987-9fdd-2464192c670f.svg?v=1741081302",
+    "page": "https://www.montecarlo.in/",
+    "file": "/assets/brands/monte-carlo.svg",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "bugatti",
+    "name": "Bugatti",
+    "url": "https://www.bugatti-fashion.com/cdn/shop/files/logo_dark.svg?v=1747040723",
+    "page": "https://www.bugatti-fashion.com/",
+    "file": "/assets/brands/bugatti.svg",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "jack-and-jones",
+    "name": "Jack & Jones",
+    "url": "https://www.jackjones.in/cdn/shop/files/JackJones_Logo_1_line_Black_RGB_ecc4754d-d716-4a0f-8d36-8a04fb33c103.png?v=1764910591&width=600",
+    "page": "https://www.jackjones.in/",
+    "file": "/assets/brands/jack-and-jones.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "pepe-jeans",
+    "name": "Pepe Jeans London",
+    "url": "https://d1pdzcnm6xgxlz.cloudfront.net/content/images/logo%402x.png",
+    "page": "https://www.pepejeans.in/",
+    "file": "/assets/brands/pepe-jeans.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "turtle",
+    "name": "Turtle",
+    "url": "https://images.turtle.in/undefined/original/4b64e560-ff43-464d-8840-6a113ade62f0turtlelogo-1_page-00012.png",
+    "page": "https://www.turtle.in/",
+    "file": "/assets/brands/turtle.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "glasafe",
+    "name": "Glasafe",
+    "url": "https://www.glasafe.com/cdn/shop/files/Glasafe_Logo-01.png?v=1700466988&width=600",
+    "page": "https://www.glasafe.com/",
+    "file": "/assets/brands/glasafe.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "toreto",
+    "name": "Toreto",
+    "url": "https://toreto.in/cdn/shop/files/Toreto_Blue_Logo_Living_Life_AM_To_PM.png?v=1791203385&width=600",
+    "page": "https://toreto.in/",
+    "file": "/assets/brands/toreto.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "nasher-miles",
+    "name": "Nasher Miles",
+    "url": "https://nashermiles.com/cdn/shop/files/5_4763a613-93da-4749-813f-4a891481ab3a.png?v=1732298252&width=600",
+    "page": "https://nashermiles.com/",
+    "file": "/assets/brands/nasher-miles.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "power-plus",
+    "name": "Power Plus",
+    "url": "https://powerpl.us/wp-content/uploads/2018/11/Power-Plus-Logo-new.png",
+    "page": "https://powerpl.us/",
+    "file": "/assets/brands/power-plus.png",
+    "retrieved": "2026-10-12"
+  },
+  {
+    "slug": "raymond",
+    "name": "Raymond",
+    "file": "/assets/brands/raymond.png",
+    "page": "https://www.raymond.in/",
+    "url": "https://www.raymond.in/static/media/raymond-logo-high-res.bfe9e301e74b77aa6f8c.png",
+    "retrieved": "2026-10-12"
+  }
+]

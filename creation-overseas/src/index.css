@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+body { margin: 0; font-family: 'Inter', system-ui, sans-serif; }
+button, a, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid #2563eb; outline-offset: 4px; }
+label { display: block; font-size: .875rem; font-weight: 500; margin-bottom: .375rem; }
+.site-dialog { margin: auto; padding: 0; width: min(42rem, calc(100% - 2rem)); max-width: none; max-height: calc(100dvh - 2rem); border: none; border-radius: 1.5rem; background: white; color: #0f172a; box-shadow: 0 24px 70px #0005; }
+.site-dialog[open] { display: flex; flex-direction: column; }
+.site-dialog::backdrop { background: #0f172ac9; backdrop-filter: blur(5px); }
+.skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 100; padding: .75rem; background: white; color: #1d4ed8; transform: translateY(-200%); }
+.skip-link:focus { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

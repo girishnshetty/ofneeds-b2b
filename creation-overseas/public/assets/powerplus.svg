@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 150" width="100%" height="100%">
+  <defs>
+    <style>
+      .text-black {
+        font-family: 'Arial', sans-serif;
+        font-weight: 900;
+        font-size: 42px;
+        fill: #000;
+        letter-spacing: 2px;
+      }
+      .text-white {
+        font-family: 'Arial', sans-serif;
+        font-weight: 900;
+        font-size: 42px;
+        fill: #FFF;
+        letter-spacing: 1px;
+      }
+    </style>
+  </defs>
+
+  <!-- Black Text 'POWER' -->
+  <text x="10" y="85" class="text-black">POWER</text>
+  
+  <!-- Red Cross for 'PLUS' -->
+  <g transform="translate(235, 70)">
+    <rect x="-25" y="-55" width="50" height="110" fill="#FF0000" />
+    <rect x="-65" y="-25" width="130" height="50" fill="#FF0000" />
+    
+    <!-- White Text 'PLUS' -->
+    <text x="-55" y="15" class="text-white">PLUS</text>
+  </g>
+  
+  <!-- Registered Trademark -->
+  <circle cx="325" cy="45" r="10" fill="none" stroke="#000" stroke-width="2" />
+  <text x="319" y="52" font-family="'Arial', sans-serif" font-weight="bold" font-size="18" fill="#000">R</text>
+</svg>
