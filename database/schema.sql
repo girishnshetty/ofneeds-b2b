@@ -51,8 +51,14 @@ CREATE TABLE products (
   b2b_price numeric(12,2) NOT NULL CHECK (b2b_price >= 0), gst_rate numeric(5,2) NOT NULL DEFAULT 18,
   hsn_code text, moq integer NOT NULL CHECK (moq > 0), stock_total integer NOT NULL DEFAULT 0 CHECK (stock_total >= 0),
   stock_sold integer NOT NULL DEFAULT 0 CHECK (stock_sold >= 0 AND stock_sold <= stock_total),
+  specifications jsonb NOT NULL DEFAULT '{}'::jsonb,
+  branding_moq integer CHECK (branding_moq > 0), branding_cost numeric(12,2) CHECK (branding_cost >= 0),
+  branding_lead_days integer CHECK (branding_lead_days >= 0), lead_days integer CHECK (lead_days >= 0),
+  stock_source text CHECK (stock_source IN ('manual','csv','demo','unknown')), stock_updated_at timestamptz,
   active boolean NOT NULL DEFAULT true, updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX products_supplier_sku ON products(dealer_user_id, lower(btrim(sku)))
+  WHERE sku IS NOT NULL AND btrim(sku) <> '';
 CREATE TABLE product_images (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   storage_key text NOT NULL, alt_text text, sort_order integer NOT NULL DEFAULT 0, created_at timestamptz NOT NULL DEFAULT now()
@@ -74,9 +80,21 @@ CREATE INDEX reservations_live_by_product ON reservations(product_id, expires_at
 CREATE INDEX products_discovery ON products(brand_id, category_id, active, updated_at DESC);
 CREATE INDEX businesses_gstin_lookup ON businesses(gstin, gst_status);
 
+CREATE TABLE enquiry_batches (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), buyer_user_id uuid NOT NULL REFERENCES users(id),
+  idempotency_key text NOT NULL, request_fingerprint text NOT NULL, items jsonb NOT NULL,
+  delivery_date date NOT NULL, delivery_address jsonb NOT NULL, requirements text,
+  created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(buyer_user_id, idempotency_key)
+);
+CREATE TABLE supplier_imports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), dealer_user_id uuid NOT NULL REFERENCES users(id),
+  preview_id uuid NOT NULL, report jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(dealer_user_id, preview_id)
+);
 CREATE TABLE enquiries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), buyer_user_id uuid NOT NULL REFERENCES users(id),
   dealer_user_id uuid NOT NULL REFERENCES users(id), product_id uuid NOT NULL REFERENCES products(id),
+  batch_id uuid REFERENCES enquiry_batches(id),
   quantity integer NOT NULL CHECK (quantity > 0), delivery_date date, delivery_address jsonb,
   requirements text, status text NOT NULL DEFAULT 'awaiting_response', created_at timestamptz NOT NULL DEFAULT now()
 );

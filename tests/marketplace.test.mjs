@@ -16,9 +16,9 @@ async function request(path, data, cookie) {
 async function login(email,password) { const response = await request('/api/auth/login',{email,password}); assert.equal(response.status,200); return response.cookie; }
 before(async () => {
   await mkdir('.tmp',{recursive:true}); fixture = await mkdtemp(resolve('.tmp/premium-test-'));
-  await cp('server.mjs',join(fixture,'server.mjs')); await cp('marketplace-services.mjs',join(fixture,'marketplace-services.mjs')); await cp('catalog',join(fixture,'catalog'),{recursive:true}); await mkdir(join(fixture,'public'));
+  await cp('server.mjs',join(fixture,'server.mjs')); await cp('marketplace-services.mjs',join(fixture,'marketplace-services.mjs')); await cp('catalog',join(fixture,'catalog'),{recursive:true}); await mkdir(join(fixture,'public')); await cp('sourcing-services.mjs',join(fixture,'sourcing-services.mjs')); await cp('public/sourcing-core.js',join(fixture,'public/sourcing-core.js'));
   mailServer = createServer(async(req,res)=>{ let raw=''; for await(const chunk of req) raw += chunk; mail.push(JSON.parse(raw)); res.end('{}'); }); await new Promise(resolve=>mailServer.listen(0,'127.0.0.1',resolve));
-  child = spawn(process.execPath,[join(fixture,'server.mjs')],{env:{...process.env,PORT:'4179',NODE_ENV:'test',DEMO_MODE:'true',SITE_URL:'https://example.test',MAIL_FROM:'test@example.test',SUPPORT_EMAIL:'admin@example.test',MAIL_GATEWAY_TOKEN:'test-token',MAIL_GATEWAY_URL:`http://127.0.0.1:${mailServer.address().port}`},stdio:['ignore','pipe','pipe']});
+  child = spawn(process.execPath,[join(fixture,'server.mjs')],{env:{...process.env,PORT:'4179',OFNEEDS_DATA_DIR:join(fixture,'data'),NODE_ENV:'test',DEMO_MODE:'true',SITE_URL:'https://example.test',MAIL_FROM:'test@example.test',SUPPORT_EMAIL:'admin@example.test',MAIL_GATEWAY_TOKEN:'test-token',MAIL_GATEWAY_URL:`http://127.0.0.1:${mailServer.address().port}`},stdio:['ignore','pipe','pipe']});
   let output = ''; child.stdout.on('data',chunk=>output+=chunk); child.stderr.on('data',chunk=>output+=chunk);
   for (let i=0;i<50;i++) { try { if ((await request('/api/health')).status===200) return; } catch {} await new Promise(resolve=>setTimeout(resolve,100)); }
   throw new Error('Fixture server failed: '+output);
@@ -103,5 +103,5 @@ test('Public service configuration excludes provider secrets',async()=>{
 });
 
 test('Production mode refuses to reuse demonstration accounts',async()=>{
-  const production=spawn(process.execPath,[join(fixture,'server.mjs')],{env:{...process.env,PORT:'4180',DEMO_MODE:'false'},stdio:['ignore','pipe','pipe']}); let errors=''; production.stderr.on('data',chunk=>errors+=chunk); const [code]=await once(production,'exit'); assert.equal(code,1); assert.ok(errors.includes('Production mode requires a separate marketplace data store'));
+  const production=spawn(process.execPath,[join(fixture,'server.mjs')],{env:{...process.env,PORT:'4180',OFNEEDS_DATA_DIR:join(fixture,'data'),DEMO_MODE:'false'},stdio:['ignore','pipe','pipe']}); let errors=''; production.stderr.on('data',chunk=>errors+=chunk); const [code]=await once(production,'exit'); assert.equal(code,1); assert.ok(errors.includes('Production mode requires a separate marketplace data store'));
 });

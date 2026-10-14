@@ -4,10 +4,12 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { randomBytes, scryptSync, timingSafeEqual, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { decodeProductPhoto, deliverEmail, makeRecoveryToken, tokenHash } from './marketplace-services.mjs';
+import { createSourcingHandler, productSpecs, supplierSku } from './sourcing-services.mjs';
+import { normalizeCategory, GIFTING_CATEGORIES, CUSTOMIZATION_METHODS, OCCASIONS, SUSTAINABILITY_TAGS, filterProducts, stockFreshness } from './public/sourcing-core.js';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const PUBLIC = join(ROOT, 'public');
-const DATA_DIR = join(ROOT, 'data');
+const DATA_DIR = resolve(process.env.OFNEEDS_DATA_DIR || join(ROOT, 'data'));
 const DATA_FILE = join(DATA_DIR, 'marketplace.json');
 const UPLOAD_DIR = join(DATA_DIR, 'documents');
 const PHOTO_DIR = join(DATA_DIR, 'product-images');
@@ -17,7 +19,6 @@ const DEMO_MODE = process.env.DEMO_MODE !== 'false';
 const policyURL = value => { try { const url = new URL(value); return url.protocol === 'https:' ? url.href : ''; } catch { return ''; } };
 const BRAND_DIRECTORY = JSON.parse(readFileSync(join(ROOT, 'catalog', 'brands.json'), 'utf8'));
 const CATEGORY_DIRECTORY = ['Electronics', 'Mobile Accessories', 'IT & Computer Accessories', 'Smart Watches', 'Watches', 'Bluetooth Speakers', 'Headphones & Earbuds', 'Audio & Headphones', 'Home Appliances', 'Kitchen Appliances', 'Drinkware', 'Backpacks & Bags', 'Bags & Backpacks', 'Trolleys & Luggage', 'Corporate Apparel', 'T-shirts & Polos', 'Footwear', 'Office Stationery', 'Lifestyle Products', 'Travel Accessories', 'Premium Gifting', 'Promotional Products', 'Personal Care & Wellness', 'Sports & Fitness', 'Eyewear', 'Smart Devices', 'Cameras'];
-const normalizeCategory = category => ({ 'Backpacks & Bags': 'Bags & Backpacks', 'Audio & Headphones': 'Headphones & Earbuds', 'Smart Devices': 'Electronics' })[category] || category;
 const PORT = Number(process.env.PORT || 4173);
 const sessions = new Map();
 const requestLimits = new Map();
@@ -49,6 +50,7 @@ function seedStore() {
     { id: 'p-8', name: 'Pavilion Aero 13 Laptop Sleeve', brand: 'HP', model: '7XG12PA', category: 'IT & Computer Accessories', dealerId: 'dealer-3', mrp: 2499, price: 1380, gst: 18, hsn: '42029200', moq: 15, stock: 61, sold: 53, minStock: 15, leadTime: '5–8 days', warranty: '6 months warranty', image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&w=900&q=85', color: '#eff6ff', updatedAt: now, description: 'Slim, padded sleeve designed to protect laptops during the daily commute.', tiers: [{ min: 15, max: 49, price: 1380 }, { min: 50, max: 9999, price: 1280 }] }
   ];
   const categories = CATEGORY_DIRECTORY;
+  for (const product of products) { product.stockSource = 'demo'; product.stockUpdatedAt = now; }
   const users = [
     { id: 'admin-1', role: 'admin', name: 'OfNeeds Admin', email: 'admin@ofneeds.in', companyName: 'OfNeeds', mobile: '+91 70907 95666', status: 'approved', gstin: '29AAACO1234F1Z5', password: hashPassword('Admin@1234') },
     { id: 'buyer-1', role: 'buyer', name: 'Ananya Iyer', email: 'buyer@ofneeds.in', companyName: 'Northstar Gifting Co.', mobile: '+91 98450 11122', status: 'approved', gstStatus: 'verified', gstin: '29AAACN1234F1Z2', city: 'Bengaluru', savedProducts: ['p-1', 'p-3'], password: hashPassword('Buyer@1234') },
@@ -76,7 +78,7 @@ if (needsAuthorizationSeed) store.authorizations = store.dealers.flatMap(dealer 
 const needsBrandDirectorySeed = !Array.isArray(store.brandDirectory) || store.brandDirectory.length === 0;
 if (needsBrandDirectorySeed) store.brandDirectory = BRAND_DIRECTORY;
 const priorCategories = Array.isArray(store.categories) ? store.categories : [];
-store.categories = [...new Set([...CATEGORY_DIRECTORY, ...priorCategories])];
+store.categories = [...new Set([...CATEGORY_DIRECTORY, ...GIFTING_CATEGORIES, ...priorCategories].map(normalizeCategory))];
 const needsCategorySeed = store.categories.length !== priorCategories.length;
 let writeQueue = Promise.resolve();
 function persist() {
@@ -166,13 +168,14 @@ function safeProduct(product, user) {
   const maySeePrice = approvedBuyer || user?.role === 'admin' || dealerOwnListing;
   const maySeeContact = approvedBuyer || user?.role === 'admin' || dealerOwnListing;
   const brandAuthorized = brandAuthorizationValid(dealer?.id, product.brand);
-  const safe = { ...product, photo: product.photo ? { uploadedAt: product.photo.uploadedAt } : undefined, category: normalizeCategory(product.category), available: available(product), lowStock: available(product) > 0 && available(product) <= product.minStock, dealer: dealer ? { id: dealer.id, businessName: dealer.businessName, city: dealer.city, state: dealer.state, verified: brandAuthorized, brands: dealer.brands, ...(maySeeContact ? { phone: dealer.phone, email: dealer.email, contactName: dealer.contactName, address: dealer.address, pin: dealer.pin, website: dealer.website } : {}) } : null };
-  if (!maySeePrice) { safe.price = null; safe.mrp = null; safe.tiers = []; }
+  const safe = { ...product, stockFreshness: stockFreshness(product), photo: product.photo ? { uploadedAt: product.photo.uploadedAt } : undefined, category: normalizeCategory(product.category), available: available(product), lowStock: available(product) > 0 && available(product) <= product.minStock, dealer: dealer ? { id: dealer.id, businessName: dealer.businessName, city: dealer.city, state: dealer.state, verified: brandAuthorized, brands: dealer.brands, ...(maySeeContact ? { phone: dealer.phone, email: dealer.email, contactName: dealer.contactName, address: dealer.address, pin: dealer.pin, website: dealer.website } : {}) } : null };
+  delete safe.stockImportId;
+  if (!maySeePrice) { safe.price = null; safe.mrp = null; safe.brandingCost = null; safe.tiers = []; }
   return safe;
 }
 function safeCatalogProduct(product, user) {
   const safe = safeProduct(product, user);
-  if (user?.role === 'dealer') { safe.price = null; safe.mrp = null; safe.tiers = []; }
+  if (user?.role === 'dealer') { safe.price = null; safe.mrp = null; safe.brandingCost = null; safe.tiers = []; }
   return safe;
 }
 function canBrowseCatalog(user) {
@@ -182,6 +185,7 @@ function canBrowseCatalog(user) {
   return !!dealer?.brands?.some(brand => brandAuthorizationValid(dealer.id, brand));
 }
 const validateGstin = value => /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i.test(value || '');
+const handleSourcing = createSourcingHandler({ store, requireUser, dealerFor, brandAuthorizationValid, activeStatuses, safeProduct, send, persist, addNotification });
 
 async function handleApi(req, res, url) {
   expireReservations();
@@ -189,6 +193,8 @@ async function handleApi(req, res, url) {
   const path = url.pathname;
   let payload;
   try { if (!['GET', 'HEAD'].includes(req.method)) payload = await body(req); } catch (error) { return send(res, 400, { error: error.message || 'Invalid request.' }); }
+  if (payload === null || (payload !== undefined && (typeof payload !== 'object' || Array.isArray(payload)))) return send(res, 400, { error: 'Request body must be an object.' });
+  if (await handleSourcing(req, res, path, payload || {})) return;
   if (req.method === 'GET' && path === '/api/health') return send(res, 200, { status: 'ok' });
   if (req.method === 'GET' && path === '/api/config') return send(res, 200, { demoMode: DEMO_MODE, emailReady: EMAIL_READY, recoveryReady: EMAIL_READY && Boolean(SITE_URL), siteUrl: SITE_URL, privacyPolicyUrl: policyURL(process.env.PRIVACY_POLICY_URL), termsUrl: policyURL(process.env.TERMS_URL) });
   if (req.method === 'POST' && path === '/api/auth/forgot-password') {
@@ -276,12 +282,12 @@ async function handleApi(req, res, url) {
     return send(res, 201, { message: 'Application received. Our team will verify your business details and documents.', status: user.status });
   }
   if (req.method === 'GET' && path === '/api/catalog') {
-    const user = userFrom(req); const catalogAccess = canBrowseCatalog(user); const q = String(url.searchParams.get('q') || '').toLowerCase(); const category = url.searchParams.get('category'); const brand = url.searchParams.get('brand'); const city = url.searchParams.get('city'); const maxPrice = Number(url.searchParams.get('maxPrice') || 0); const inStock = url.searchParams.get('inStock') === 'true';
+    const user = userFrom(req); const catalogAccess = canBrowseCatalog(user);
     let products = catalogAccess ? store.products.map(product => safeCatalogProduct(product, user)).filter(product => product.active !== false && product.dealer?.verified) : [];
-    products = products.filter(product => (!q || [product.name, product.brand, product.model, product.category, product.dealer?.businessName, product.dealer?.city].some(value => value?.toLowerCase().includes(q))) && (!category || product.category === category) && (!brand || product.brand === brand) && (!city || product.dealer?.city === city) && (!maxPrice || !product.price || product.price <= maxPrice) && (!inStock || product.available > 0));
+    products = filterProducts(products, Object.fromEntries(url.searchParams));
     const authorizedProducts = catalogAccess ? store.products.filter(product => product.active !== false && brandAuthorizationValid(product.dealerId, product.brand)) : [];
     const dealers = catalogAccess ? store.dealers.map(dealer => ({ ...dealer, brands: [...new Set((dealer.brands || []).filter(item => brandAuthorizationValid(dealer.id, item)))] })).filter(dealer => dealer.brands.length).map(({ id, businessName, city, state, brands, about, deliveryCoverage, capabilities, type }) => ({ id, businessName, city, state, verified: true, brands, about, deliveryCoverage, capabilities, type, authorizations: store.authorizations.filter(item => item.dealerId === id && brandAuthorizationValid(id, item.brand) && item.status === 'verified').map(({ brand, verifiedAt, validUntil, documentId }) => ({ brand, verifiedAt, validUntil, evidenceRecorded: Boolean(documentId) })) })) : [];
-    return send(res, 200, { catalogAccess, products, categories: [...new Set(store.categories.map(normalizeCategory))], brands: [...new Set(authorizedProducts.map(p => p.brand))].sort((a, b) => a.localeCompare(b)), brandDirectory: store.brandDirectory.map(brand => ({ ...brand, categories: [...new Set(brand.categories.map(normalizeCategory))] })), dealers, total: products.length });
+    return send(res, 200, { catalogAccess, products, taxonomy: { customizationMethods: CUSTOMIZATION_METHODS, occasions: OCCASIONS, sustainabilityTags: SUSTAINABILITY_TAGS }, categories: [...new Set(store.categories.map(normalizeCategory))], brands: [...new Set(authorizedProducts.map(p => p.brand))].sort((a, b) => a.localeCompare(b)), brandDirectory: store.brandDirectory.map(brand => ({ ...brand, categories: [...new Set(brand.categories.map(normalizeCategory))] })), dealers, total: products.length });
   }
   if (req.method === 'POST' && path === '/api/reservations') {
     const user = requireUser(req, res, ['buyer']); if (!user) return;
@@ -302,6 +308,7 @@ async function handleApi(req, res, url) {
     const product = store.products.find(item => item.id === payload.productId);
     if (!product || product.active === false || !brandAuthorizationValid(product.dealerId, product.brand)) return send(res, 404, { error: 'This product is not currently published by an authorized dealer.' });
     if (!Number.isInteger(Number(payload.quantity)) || Number(payload.quantity) < product.moq) return send(res, 400, { error: 'Choose a quantity that meets this product\'s MOQ.' });
+    if (payload.dealerId && (payload.dealerId !== product.dealerId || !brandAuthorizationValid(payload.dealerId, product.brand))) return send(res, 403, { error: 'This listing belongs to another authorized supplier.' });
     const dealerIds = payload.broadcast === 'true' || payload.broadcast === true
       ? [...new Set(store.products.filter(item => item.brand === product.brand && store.authorizations.some(auth => auth.dealerId === item.dealerId && auth.brand.toLowerCase() === item.brand.toLowerCase() && auth.status === 'verified' && (!auth.validUntil || Date.parse(auth.validUntil) > Date.now()))).map(item => item.dealerId))]
       : [payload.dealerId || product.dealerId];
@@ -334,9 +341,9 @@ async function handleApi(req, res, url) {
     if (user.role === 'admin') return send(res, 200, { metrics: { dealers: store.users.filter(item => item.role === 'dealer').length, approvedDealers: store.users.filter(item => item.role === 'dealer' && item.status === 'approved').length, pending: store.users.filter(item => item.status === 'pending').length, buyers: store.users.filter(item => item.role === 'buyer' && item.status === 'approved').length, brands: new Set(store.products.map(item => item.brand)).size, products: store.products.length, reservations: store.reservations.length, activeReservations: store.reservations.filter(item => activeStatuses.has(item.status)).length, enquiries: store.enquiries.length }, requests: store.requests || [], pendingUsers: store.users.filter(item => item.status === 'pending').map(cleanUser), authorizations: store.authorizations.filter(item => item.status === 'pending'), products: store.products.map(product => safeProduct(product, user)), reservations: store.reservations, enquiries: store.enquiries });
     if (user.role === 'dealer') {
       const dealer = dealerFor(user); const products = store.products.filter(item => item.dealerId === dealer?.id).map(product => safeProduct(product, user)); const reservations = store.reservations.filter(item => item.dealerId === dealer?.id); const enquiries = store.enquiries.filter(item => item.dealerId === dealer?.id);
-      return send(res, 200, { dealer, products, reservations, enquiries, metrics: { products: products.length, inventory: products.reduce((sum, p) => sum + p.available, 0), reservations: reservations.filter(item => activeStatuses.has(item.status)).length, enquiries: enquiries.length, lowStock: products.filter(item => item.lowStock).length } });
+      return send(res, 200, { dealer, products, reservations, enquiries, importReports: store.importReports.filter(item => item.dealerId === dealer?.id).slice(0, 10), metrics: { products: products.length, inventory: products.reduce((sum, p) => sum + p.available, 0), reservations: reservations.filter(item => activeStatuses.has(item.status)).length, enquiries: enquiries.length, lowStock: products.filter(item => item.lowStock).length } });
     }
-    return send(res, 200, { reservations: store.reservations.filter(item => item.buyerId === user.id), enquiries: store.enquiries.filter(item => item.buyerId === user.id), savedProducts: user.savedProducts || [], recentlyViewed: user.recentlyViewed || [], notifications: store.notifications.filter(item => item.userId === user.id).slice(0, 8), metrics: { reservations: store.reservations.filter(item => item.buyerId === user.id && activeStatuses.has(item.status)).length, enquiries: store.enquiries.filter(item => item.buyerId === user.id).length, saved: (user.savedProducts || []).length } });
+    return send(res, 200, { enquiryBatches: store.enquiryBatches.filter(item => item.buyerId === user.id).map(({ fingerprint, idempotencyKey, ...batch }) => batch), reservations: store.reservations.filter(item => item.buyerId === user.id), enquiries: store.enquiries.filter(item => item.buyerId === user.id), savedProducts: user.savedProducts || [], recentlyViewed: user.recentlyViewed || [], notifications: store.notifications.filter(item => item.userId === user.id).slice(0, 8), metrics: { reservations: store.reservations.filter(item => item.buyerId === user.id && activeStatuses.has(item.status)).length, enquiries: store.enquiries.filter(item => item.buyerId === user.id).length, saved: (user.savedProducts || []).length } });
   }
   if (req.method === 'POST' && path === '/api/admin/review') {
     const admin = requireUser(req, res, ['admin']); if (!admin) return;
@@ -401,14 +408,24 @@ async function handleApi(req, res, url) {
     const tiers = bulkMinimum && bulkPrice ? [{ min: moq, max: bulkMinimum - 1, price }, { min: bulkMinimum, max: 9999, price: bulkPrice }] : [{ min: moq, max: 9999, price }];
     let image; try { image = checkedImageURL(payload.image); if (payload.photo) decodeProductPhoto(payload.photo); } catch (error) { return send(res, 400, { error: error.message }); }
     const product = { id: slugId('p'), name: String(payload.name).slice(0, 160), brand: String(payload.brand).slice(0, 80), model: String(payload.model || '').slice(0, 80), category: store.categories.includes(payload.category) ? payload.category : 'Premium Gifting', dealerId: dealer.id, mrp: Number(payload.mrp || price), price, gst, hsn: String(payload.hsn || ''), moq, stock, sold: 0, minStock: Number(payload.minStock || 10), leadTime: String(payload.leadTime || '3–5 days'), warranty: String(payload.warranty || ''), image, color: '#f1f5f9', updatedAt: new Date().toISOString(), description: String(payload.description || ''), tiers };
+    try {
+      Object.assign(product, productSpecs(payload), { stockSource: 'manual', stockUpdatedAt: new Date().toISOString() });
+      if (supplierSku(product) && store.products.some(item => item.dealerId === dealer.id && supplierSku(item) === supplierSku(product))) throw new Error('This supplier SKU/model already exists. Update that listing instead.');
+    } catch (error) { return send(res, 400, { error: error.message }); }
     if (payload.photo) saveProductPhoto(product, payload.photo);
     store.products.unshift(product); await persist(); return send(res, 201, { product: safeProduct(product, user) });
   }
   if (req.method === 'POST' && path === '/api/dealer/stock') {
     const user = requireUser(req, res, ['dealer']); if (!user) return;
     const dealer = dealerFor(user); const product = store.products.find(item => item.id === payload.productId && item.dealerId === dealer?.id);
+    if (product && !brandAuthorizationValid(dealer.id, product.brand)) return send(res, 403, { error: 'Current brand authorization is required to update inventory.' });
     const stock = Number(payload.stock); if (!product || !Number.isInteger(stock) || stock < product.sold + store.reservations.filter(item => item.productId === product.id && activeStatuses.has(item.status)).reduce((sum, item) => sum + item.quantity, 0)) return send(res, 400, { error: 'Stock must be a whole number and cannot be less than sold plus reserved units.' });
-    product.stock = stock; if (payload.price !== undefined) { const price = Number(payload.price); if (!Number.isFinite(price) || price < 0) return send(res, 400, { error: 'Enter a valid B2B price.' }); product.price = price; if (product.tiers?.length) product.tiers[0].price = price; else product.tiers = [{ min: product.moq, max: 9999, price }]; } product.updatedAt = new Date().toISOString(); await persist(); return send(res, 200, { product: safeProduct(product, user) });
+    const price = payload.price === undefined ? product.price : Number(payload.price);
+    if (!Number.isFinite(price) || price < 0) return send(res, 400, { error: 'Enter a valid B2B price.' });
+    product.stock = stock; product.price = price;
+    if (product.tiers?.length) product.tiers[0].price = price; else product.tiers = [{ min: product.moq, max: 9999, price }];
+    product.updatedAt = product.stockUpdatedAt = new Date().toISOString(); product.stockSource = 'manual'; delete product.stockImportId;
+    await persist(); return send(res, 200, { product: safeProduct(product, user) });
   }
   const reservationMatch = path.match(/^\/api\/reservations\/([^/]+)\/status$/);
   if (req.method === 'POST' && reservationMatch) {

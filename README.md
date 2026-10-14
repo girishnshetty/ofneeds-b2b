@@ -78,3 +78,73 @@ Copy `.env.example` to `.env` and fill values locally. With Node 22+, start a co
 `PRIVACY_POLICY_URL` and `TERMS_URL` add HTTPS links to business-approved policies in the footer. Do not use placeholders as published policies. `DEMO_MODE=false` disables demonstration seeding and rejects existing stores containing known demo account IDs. It does not erase or convert the current preview. Use a separate deployment, production account provisioning and the database/session architecture above.
 
 Twelve isolated tests include a local mock mail gateway. No real email, business approvals, stock updates or passwords in the running preview are changed by these tests. Genuine supplier photos, business proof, customer testimonials, approved policies, the final name and provider credentials still require business input.
+# Phase 1 sourcing tools
+
+## Brand and supplier stores
+
+Click a brand in the product card's image area or brand name to open that seller's
+store for the selected brand. Brand-directory entries open the brand store across
+all authorized suppliers, with each supplier's products grouped separately.
+Supplier-card brand tags also open the corresponding supplier store. Product
+names continue to open product details, quotes and stock holds.
+
+Store links use `#store/JBL` or `#store/JBL?supplier=dealer-1`; they support direct
+navigation, refresh and browser history. Each store shows all active, authorized
+listings in its brand/supplier scope, independent of earlier catalog filters,
+including out-of-stock listings. Cards display supplier identity, stock, MOQ,
+lead times and the existing private buyer prices. Brands without supplier listings
+show an honest empty state. Anonymous and unapproved accounts retain the existing
+catalog access restrictions. A sign-in started from a store returns to that store.
+
+The catalog includes normalized gifting categories (including gift sets, hampers,
+headwear and awards), supplier SKUs, optional specifications, warehouse/delivery
+locations, customization methods and supplier-provided occasion/sustainability
+tags. Legacy category names remain readable. Blank specifications mean **not
+specified**; unknown dispatch times do not match a dispatch-days filter.
+
+Approved buyers can combine search, category, brand, supplier city, warehouse,
+price range, quantity, maximum MOQ, material, customization, occasion,
+sustainability, delivery location and dispatch-days filters. Required quantity
+must meet the MOQ and fit available inventory. Sorting retains the filters.
+
+Use **Add to enquiry basket**, then **Basket**, to send a multi-product brief.
+Products are grouped by their owning suppliers. Submission creates related RFQs
+with a shared brief ID, one buyer summary and one notification per onboarded
+supplier. Retries with the same submission key do not duplicate RFQs or alerts.
+Enquiries can ask about replenishment; they do not reserve stock. Existing
+single-product RFQs, supplier quotes and 24-hour stock holds continue to work.
+Basket product IDs and quantities are stored per buyer in browser session storage.
+
+Suppliers can use **My products → Import CSV**. Download the header-only template,
+fill supplier-owned data, then upload or paste it and review the row validation.
+Required columns: `sku,name,brand,category,price,moq,stock`. Optional columns are
+listed in the template, including specifications, GST/MRP and customization.
+Use `|` between list values. Supported tags and categories appear in the import
+dialog. CSV supports quoted commas, escaped quotes, multiline cells and a UTF-8
+BOM. Limit: 1 MB and 500 product rows per preview.
+
+Imports match SKUs case-insensitively within the supplier; legacy model numbers
+serve as identifiers when no explicit SKU exists. Duplicate rows, unauthorized
+brands, invalid values and stock below sold units plus active holds are rejected.
+No rows are written until the complete preview passes. Previews expire after ten
+minutes. Commit rechecks authorization, inventory and listing revisions, and
+returns a stored import report. Retrying a successful commit returns its original
+report. Explicit imported prices/MOQs replace quantity price breaks; other fields
+not present in the CSV remain intact. Product photos are added through the existing
+consent-based photo uploader, separately from CSV imports.
+
+**Specifications** lets a supplier edit optional details without claiming a stock
+refresh. Stock confirmations and CSV imports record their actual timestamp and
+source. Stock older than seven days is marked stale; legacy listings without a
+recorded stock timestamp remain unknown. Demo inventory is explicitly labelled.
+All pricing, including branding costs, retains the verified buyer/own-supplier
+access rules. These features use OfNeeds and supplier-provided data; they do not
+connect to Hive91 or PromoSetu inventory APIs.
+
+`npm test` runs the existing regression suite and the sourcing/import suite in
+isolated temporary stores. To run a separate UI preview without changing the
+usual marketplace data, set `OFNEEDS_DATA_DIR` to a separate writable directory
+and `PORT` to another free port before starting `node server.mjs`. The default
+data directory is unchanged. The JSON store remains a single-process local
+implementation; the SQL schema is a production design outline, not an installed
+database migration.
